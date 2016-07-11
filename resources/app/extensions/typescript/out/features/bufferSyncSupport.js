@@ -47,20 +47,42 @@ var SyncedBuffer = (function () {
         this.diagnosticRequestor.requestDiagnostic(filePath);
     };
     return SyncedBuffer;
-})();
+}());
 var BufferSyncSupport = (function () {
-    function BufferSyncSupport(client, modeId) {
+    function BufferSyncSupport(client, modeIds, diagnostics, extensions, validate) {
+        var _this = this;
+        if (validate === void 0) { validate = true; }
         this.disposables = [];
         this.client = client;
-        this.modeId = modeId;
+        this.modeIds = Object.create(null);
+        modeIds.forEach(function (modeId) { return _this.modeIds[modeId] = true; });
+        this.diagnostics = diagnostics;
+        this.extensions = extensions;
+        this._validate = validate;
+        this.projectValidationRequested = false;
         this.pendingDiagnostics = Object.create(null);
         this.diagnosticDelayer = new async_1.Delayer(100);
         this.syncedBuffers = Object.create(null);
-        vscode_1.workspace.onDidOpenTextDocument(this.onDidAddDocument, this, this.disposables);
-        vscode_1.workspace.onDidCloseTextDocument(this.onDidRemoveDocument, this, this.disposables);
-        vscode_1.workspace.onDidChangeTextDocument(this.onDidChangeDocument, this, this.disposables);
-        vscode_1.workspace.textDocuments.forEach(this.onDidAddDocument, this);
     }
+    BufferSyncSupport.prototype.listen = function () {
+        vscode_1.workspace.onDidOpenTextDocument(this.onDidOpenTextDocument, this, this.disposables);
+        vscode_1.workspace.onDidCloseTextDocument(this.onDidCloseTextDocument, this, this.disposables);
+        vscode_1.workspace.onDidChangeTextDocument(this.onDidChangeTextDocument, this, this.disposables);
+        vscode_1.workspace.textDocuments.forEach(this.onDidOpenTextDocument, this);
+    };
+    Object.defineProperty(BufferSyncSupport.prototype, "validate", {
+        get: function () {
+            return this._validate;
+        },
+        set: function (value) {
+            this._validate = value;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    BufferSyncSupport.prototype.handles = function (file) {
+        return !!this.syncedBuffers[file];
+    };
     BufferSyncSupport.prototype.reOpenDocuments = function () {
         var _this = this;
         Object.keys(this.syncedBuffers).forEach(function (key) {
@@ -72,8 +94,8 @@ var BufferSyncSupport = (function () {
             this.disposables.pop().dispose();
         }
     };
-    BufferSyncSupport.prototype.onDidAddDocument = function (document) {
-        if (document.languageId !== this.modeId) {
+    BufferSyncSupport.prototype.onDidOpenTextDocument = function (document) {
+        if (!this.modeIds[document.languageId]) {
             return;
         }
         if (document.isUntitled) {
@@ -89,7 +111,7 @@ var BufferSyncSupport = (function () {
         syncedBuffer.open();
         this.requestDiagnostic(filepath);
     };
-    BufferSyncSupport.prototype.onDidRemoveDocument = function (document) {
+    BufferSyncSupport.prototype.onDidCloseTextDocument = function (document) {
         var filepath = this.client.asAbsolutePath(document.uri);
         if (!filepath) {
             return;
@@ -98,10 +120,11 @@ var BufferSyncSupport = (function () {
         if (!syncedBuffer) {
             return;
         }
+        this.diagnostics.delete(filepath);
         delete this.syncedBuffers[filepath];
         syncedBuffer.close();
     };
-    BufferSyncSupport.prototype.onDidChangeDocument = function (e) {
+    BufferSyncSupport.prototype.onDidChangeTextDocument = function (e) {
         var filepath = this.client.asAbsolutePath(e.document.uri);
         if (!filepath) {
             return;
@@ -114,6 +137,9 @@ var BufferSyncSupport = (function () {
     };
     BufferSyncSupport.prototype.requestAllDiagnostics = function () {
         var _this = this;
+        if (!this._validate) {
+            return;
+        }
         Object.keys(this.syncedBuffers).forEach(function (filePath) { return _this.pendingDiagnostics[filePath] = Date.now(); });
         this.diagnosticDelayer.trigger(function () {
             _this.sendPendingDiagnostics();
@@ -121,6 +147,9 @@ var BufferSyncSupport = (function () {
     };
     BufferSyncSupport.prototype.requestDiagnostic = function (file) {
         var _this = this;
+        if (!this._validate || this.client.experimentalAutoBuild) {
+            return;
+        }
         this.pendingDiagnostics[file] = Date.now();
         this.diagnosticDelayer.trigger(function () {
             _this.sendPendingDiagnostics();
@@ -128,6 +157,9 @@ var BufferSyncSupport = (function () {
     };
     BufferSyncSupport.prototype.sendPendingDiagnostics = function () {
         var _this = this;
+        if (!this._validate) {
+            return;
+        }
         var files = Object.keys(this.pendingDiagnostics).map(function (key) {
             return {
                 file: key,
@@ -152,6 +184,7 @@ var BufferSyncSupport = (function () {
         this.pendingDiagnostics = Object.create(null);
     };
     return BufferSyncSupport;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = BufferSyncSupport;
+//# sourceMappingURL=bufferSyncSupport.js.map

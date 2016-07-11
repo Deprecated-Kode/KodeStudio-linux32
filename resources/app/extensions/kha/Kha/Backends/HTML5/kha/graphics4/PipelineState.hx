@@ -17,6 +17,10 @@ class PipelineState extends PipelineStateBase {
 		textures = new Array<String>();
 		textureValues = new Array<Dynamic>();
 	}
+	
+	public function delete(): Void {
+		SystemImpl.gl.deleteProgram(program);
+	}
 		
 	public function compile(): Void {
 		compileShader(vertexShader);
@@ -39,13 +43,14 @@ class PipelineState extends PipelineStateBase {
 		
 		SystemImpl.gl.linkProgram(program);
 		if (!SystemImpl.gl.getProgramParameter(program, GL.LINK_STATUS)) {
-			throw "Could not link the shader program.";
+			throw "Could not link the shader program:\n" + SystemImpl.gl.getProgramInfoLog(program);
 		}
 	}
 	
 	public function set(): Void {
 		SystemImpl.gl.useProgram(program);
 		for (index in 0...textureValues.length) SystemImpl.gl.uniform1i(textureValues[index], index);
+		SystemImpl.gl.colorMask(colorWriteMaskRed, colorWriteMaskGreen, colorWriteMaskBlue, colorWriteMaskAlpha);
 	}
 	
 	private function compileShader(shader: Dynamic): Void {

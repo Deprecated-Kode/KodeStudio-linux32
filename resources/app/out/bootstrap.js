@@ -79,20 +79,25 @@ if (!!process.send && process.env.PIPE_LOGGING === 'true') {
 	// Pass console logging to the outside so that we have it in the main side if told so
 	if (process.env.VERBOSE_LOGGING === 'true') {
 		console.log = function () { safeSend({ type: '__$console', severity: 'log', arguments: safeStringify(arguments) }); };
+		console.info = function () { safeSend({ type: '__$console', severity: 'log', arguments: safeStringify(arguments) }); };
 		console.warn = function () { safeSend({ type: '__$console', severity: 'warn', arguments: safeStringify(arguments) }); };
 	} else {
 		console.log = function () { /* ignore */ };
 		console.warn = function () { /* ignore */ };
+		console.info = function () { /* ignore */ };
 	}
 
 	console.error = function () { safeSend({ type: '__$console', severity: 'error', arguments: safeStringify(arguments) }); };
+}
 
+if (!process.env['VSCODE_ALLOW_IO']) {
 	// Let stdout, stderr and stdin be no-op streams. This prevents an issue where we would get an EBADF
 	// error when we are inside a forked process and this process tries to access those channels.
 	var stream = require('stream');
 	var writable = new stream.Writable({
-		write: function (chunk, encoding, next) { /* No OP */ }
+		write: function () { /* No OP */ }
 	});
+
 	process.__defineGetter__('stdout', function() { return writable; });
 	process.__defineGetter__('stderr', function() { return writable; });
 	process.__defineGetter__('stdin', function() { return writable; });
@@ -106,31 +111,19 @@ process.on('uncaughtException', function (err) {
 	}
 });
 
-var path = require('path');
-var loader = require('./vs/loader');
+// Kill oneself if one's parent dies. Much drama.
+if (process.env['VSCODE_PARENT_PID']) {
+	const parentPid = Number(process.env['VSCODE_PARENT_PID']);
 
-// TODO: Duplicated in:
-// * src\bootstrap.js
-// * src\vs\workbench\electron-main\bootstrap.js
-// * src\vs\platform\plugins\common\nativePluginService.ts
-function uriFromPath(_path) {
-	var pathName = path.resolve(_path).replace(/\\/g, '/');
-
-	if (pathName.length > 0 && pathName.charAt(0) !== '/') {
-		pathName = '/' + pathName;
+	if (typeof parentPid === 'number' && !isNaN(parentPid)) {
+		setInterval(function () {
+			try {
+				process.kill(parentPid, 0); // throws an exception if the main process doesn't exist anymore.
+			} catch (e) {
+				process.exit();
+			}
+		}, 5000);
 	}
-
-	return encodeURI('file://' + pathName);
 }
 
-loader.config({
-	baseUrl: uriFromPath(path.join(__dirname)),
-	catchError: true,
-	nodeRequire: require,
-	nodeMain: __filename
-});
-
-var entrypoint = process.env.AMD_ENTRYPOINT;
-if (entrypoint) {
-	loader([entrypoint], function () { }, function (err) { console.error(err); });
-}
+require('./bootstrap-amd').bootstrap(process.env['AMD_ENTRYPOINT']);

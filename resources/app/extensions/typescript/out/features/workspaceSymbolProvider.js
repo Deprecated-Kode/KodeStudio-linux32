@@ -23,8 +23,8 @@ var TypeScriptWorkspaceSymbolProvider = (function () {
         // one that is typescript'ish
         var uri;
         var documents = vscode_1.workspace.textDocuments;
-        for (var _i = 0; _i < documents.length; _i++) {
-            var document = documents[_i];
+        for (var _i = 0, documents_1 = documents; _i < documents_1.length; _i++) {
+            var document = documents_1[_i];
             if (document.languageId === this.modeId) {
                 uri = document.uri;
                 break;
@@ -43,14 +43,20 @@ var TypeScriptWorkspaceSymbolProvider = (function () {
         return this.client.execute('navto', args, token).then(function (response) {
             var data = response.body;
             if (data) {
-                return data.map(function (item) {
+                var result = [];
+                for (var _i = 0, data_1 = data; _i < data_1.length; _i++) {
+                    var item = data_1[_i];
+                    if (!item.containerName && item.kind === 'alias') {
+                        continue;
+                    }
                     var range = new vscode_1.Range(item.start.line - 1, item.start.offset - 1, item.end.line - 1, item.end.offset - 1);
                     var label = item.name;
                     if (item.kind === 'method' || item.kind === 'function') {
                         label += '()';
                     }
-                    return new vscode_1.SymbolInformation(label, _kindMapping[item.kind], range, _this.client.asUrl(item.file), item.containerName);
-                });
+                    result.push(new vscode_1.SymbolInformation(label, _kindMapping[item.kind], range, _this.client.asUrl(item.file), item.containerName));
+                }
+                return result;
             }
             else {
                 return [];
@@ -60,6 +66,7 @@ var TypeScriptWorkspaceSymbolProvider = (function () {
         });
     };
     return TypeScriptWorkspaceSymbolProvider;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptWorkspaceSymbolProvider;
+//# sourceMappingURL=workspaceSymbolProvider.js.map

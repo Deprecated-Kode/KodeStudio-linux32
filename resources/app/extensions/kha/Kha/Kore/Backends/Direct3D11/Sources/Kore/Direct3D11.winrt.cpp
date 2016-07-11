@@ -1,7 +1,7 @@
 #include "pch.h"
 #include <Kore/Math/Core.h>
 #include "Direct3D11.h"
-#include <Kore/Application.h>
+//#include <Kore/Application.h>
 #include "IndexBufferImpl.h"
 #include "VertexBufferImpl.h"
 #include <Kore/Graphics/Shader.h>
@@ -53,15 +53,15 @@ namespace {
 #endif
 }
 
-void Graphics::destroy() {
+void Graphics::destroy(int windowId) {
 
 }
 
-void Graphics::init() {
+void Graphics::init(int windowId, int depthBufferBits, int stencilBufferBits) {
 	for (int i = 0; i < 1024 * 4; ++i) vertexConstants[i] = 0;
 	for (int i = 0; i < 1024 * 4; ++i) fragmentConstants[i] = 0;
 
-	HWND hwnd = (HWND)System::createWindow();
+	HWND hwnd = (HWND)System::windowHandle(windowId);
 
 	UINT creationFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 #ifdef _DEBUG
@@ -99,8 +99,8 @@ void Graphics::init() {
 		swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 		swapChainDesc.BufferDesc.RefreshRate.Denominator = 1; // 60Hz
 		swapChainDesc.BufferDesc.RefreshRate.Numerator = 60; 
-		swapChainDesc.BufferDesc.Width = Application::the()->width();                                     // use automatic sizing
-		swapChainDesc.BufferDesc.Height = Application::the()->height();
+		swapChainDesc.BufferDesc.Width = System::windowWidth(windowId);                                     // use automatic sizing
+		swapChainDesc.BufferDesc.Height = System::windowHeight(windowId);
 		swapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;           // this is the most common swapchain format
 		//swapChainDesc.Stereo = false; 
 		swapChainDesc.SampleDesc.Count = 1;                          // don't use multi-sampling
@@ -111,7 +111,7 @@ void Graphics::init() {
 		swapChainDesc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;//DXGI_SCALING_NONE;
 		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD; //DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL; // we recommend using this swap effect for all applications
 		swapChainDesc.Flags = 0;
-		swapChainDesc.OutputWindow = (HWND)System::windowHandle();
+		swapChainDesc.OutputWindow = (HWND)System::windowHandle(windowId);
 		swapChainDesc.Windowed = true;
 #endif
 
@@ -141,7 +141,11 @@ void Graphics::init() {
 		affirm(dxgiFactory->CreateSwapChainForCoreWindow(device, reinterpret_cast<IUnknown*>(CoreWindow::GetForCurrentThread()), &swapChainDesc, nullptr, &swapChain));
 		affirm(dxgiDevice->SetMaximumFrameLatency(1));
 #else
-		affirm(D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, featureLevels, 6, D3D11_SDK_VERSION, &swapChainDesc, &swapChain, &device, nullptr, &context));
+		UINT flags = 0;
+#ifdef _DEBUG
+		flags = D3D11_CREATE_DEVICE_DEBUG;
+#endif
+		affirm(D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, flags, featureLevels, 6, D3D11_SDK_VERSION, &swapChainDesc, &swapChain, &device, nullptr, &context));
 #endif	
 	}
 
@@ -155,6 +159,7 @@ void Graphics::init() {
 	renderTargetWidth  = backBufferDesc.Width;
 	renderTargetHeight = backBufferDesc.Height;
 
+	// TODO (DK) map depth/stencilBufferBits arguments
 	CD3D11_TEXTURE2D_DESC depthStencilDesc(DXGI_FORMAT_D24_UNORM_S8_UINT, backBufferDesc.Width, backBufferDesc.Height, 1, 1, D3D11_BIND_DEPTH_STENCIL);
 
 	ID3D11Texture2D* depthStencil;
@@ -228,11 +233,21 @@ void Graphics::init() {
 	context->OMSetBlendState(blending, nullptr, 0xffffffff);
 
 #ifdef SYS_WINDOWS
-	if (Application::the()->showWindow()) {
+	if (System::hasShowWindowFlag()) {
 		ShowWindow(hwnd, SW_SHOWDEFAULT);
 		UpdateWindow(hwnd);
 	}
 #endif
+
+	System::makeCurrent(windowId);
+}
+
+void Graphics::makeCurrent( int contextId ) {
+	// TODO (DK) implement me
+}
+
+void Graphics::clearCurrent() {
+	// TODO (DK) implement me
 }
 
 void Graphics::flush() {
@@ -243,11 +258,13 @@ void Graphics::changeResolution(int width, int height) {
 
 }
 
-void* Graphics::getControl() {
-	return nullptr;
-}
-
 void Graphics::drawIndexedVertices() {
+	if (currentProgram->tessControlShader != nullptr) {
+		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
+	}
+	else {
+		context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	}
 	Program::setConstants();
 	context->DrawIndexed(IndexBuffer::_current->count(), 0, 0);
 }
@@ -306,6 +323,18 @@ void Graphics::setTextureAddressing(TextureUnit unit, TexDir dir, TextureAddress
 	sampler->Release();
 }
 
+// (DK) fancy macro's to generate a clickable warning message in visual studio, can be removed when setColorMask() is implemented
+#define Stringize( L )			#L
+#define MakeString( M, L )		M(L)
+#define $Line					\
+	MakeString( Stringize, __LINE__ )
+#define Warning				\
+	__FILE__ "(" $Line ") : warning: "
+
+void Graphics::setColorMask(bool red, bool green, bool blue, bool alpha) {
+#pragma message(Warning "(DK) Robert, please implement d3d11's version of setColorMask() here")
+}
+
 void Graphics::clear(uint flags, uint color, float depth, int stencil) {
 	if (flags & ClearColorFlag) {
 		const float clearColor[] = { ((color & 0x00ff0000) >> 16) / 255.0f, ((color & 0x0000ff00) >> 8) / 255.0f, (color & 0x000000ff) / 255.0f, 1.0f };
@@ -319,8 +348,9 @@ void Graphics::clear(uint flags, uint color, float depth, int stencil) {
 	}
 }
 
-void Graphics::begin() {
+void Graphics::begin(int windowId) {	
 #ifdef SYS_WINDOWSAPP
+	// TODO (DK) do i need to do something here?
 	context->OMSetRenderTargets(1, &renderTargetView, depthStencilView);
 #endif
 }
@@ -329,7 +359,19 @@ void Graphics::viewport(int x, int y, int width, int height) {
 	//TODO
 }
 
-void Graphics::end() {
+void Graphics::scissor(int x, int y, int width, int height) {
+	//TODO
+}
+
+void Graphics::disableScissor() {
+	//TODO
+}
+
+void Graphics::setStencilParameters(ZCompareMode compareMode, StencilAction bothPass, StencilAction depthFail, StencilAction stencilFail, int referenceValue, int readMask, int writeMask) {
+	//TODO
+}
+
+void Graphics::end(int windowId) {
 	
 }
 
@@ -341,14 +383,18 @@ unsigned Graphics::refreshRate() {
 	return hz;
 }
 
-void Graphics::swapBuffers() {
+void Graphics::swapBuffers(int windowId) {
 	HRESULT hr = swapChain->Present(1, 0);
+	// TODO: if (hr == DXGI_STATUS_OCCLUDED)...
+	// http://www.pouet.net/topic.php?which=10454
+	// "Proper handling of DXGI_STATUS_OCCLUDED would be to pause the application,
+	// and periodically call Present with the TEST flag, and when it returns S_OK, resume rendering."
 
 	//if (hr == DXGI_ERROR_DEVICE_REMOVED || hr == DXGI_ERROR_DEVICE_RESET) {
 	//	Initialize(m_window);
 	//}
 	//else {
-		affirm(hr);
+		affirm(SUCCEEDED(hr));
 	//}
 }
 
@@ -611,7 +657,7 @@ void Graphics::restoreRenderTarget() {
 	context->RSSetViewports(1, &viewPort);
 }
 
-void Graphics::setRenderTarget(RenderTarget* target, int) {
+void Graphics::setRenderTarget(RenderTarget* target, int num, int additionalTargets) {
 	context->OMSetRenderTargets(1, &target->renderTargetView, nullptr);
 	CD3D11_VIEWPORT viewPort(0.0f, 0.0f, static_cast<float>(target->width), static_cast<float>(target->height));
 	context->RSSetViewports(1, &viewPort);
@@ -627,4 +673,8 @@ void Graphics::setIndexBuffer(IndexBuffer& buffer) {
 
 void Graphics::setTexture(TextureUnit unit, Texture* texture) {
 	texture->_set(unit);
+}
+
+void Graphics::setup() {
+
 }

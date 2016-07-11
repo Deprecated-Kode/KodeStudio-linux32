@@ -8,14 +8,38 @@ var fs = require('fs');
 var electron = require('./utils/electron');
 var wireProtocol_1 = require('./utils/wireProtocol');
 var vscode_1 = require('vscode');
-var isWin = /^win/.test(process.platform);
-var isDarwin = /^darwin/.test(process.platform);
-var isLinux = /^linux/.test(process.platform);
-var arch = process.arch;
+var VersionStatus = require('./utils/versionStatus');
+var vscode_extension_telemetry_1 = require('vscode-extension-telemetry');
+var nls = require('vscode-nls');
+var localize = nls.loadMessageBundle(__filename);
+var Trace;
+(function (Trace) {
+    Trace[Trace["Off"] = 0] = "Off";
+    Trace[Trace["Messages"] = 1] = "Messages";
+    Trace[Trace["Verbose"] = 2] = "Verbose";
+})(Trace || (Trace = {}));
+var Trace;
+(function (Trace) {
+    function fromString(value) {
+        value = value.toLowerCase();
+        switch (value) {
+            case 'off':
+                return Trace.Off;
+            case 'messages':
+                return Trace.Messages;
+            case 'verbose':
+                return Trace.Verbose;
+            default:
+                return Trace.Off;
+        }
+    }
+    Trace.fromString = fromString;
+})(Trace || (Trace = {}));
 var TypeScriptServiceClient = (function () {
-    function TypeScriptServiceClient(host) {
+    function TypeScriptServiceClient(host, storagePath) {
         var _this = this;
         this.host = host;
+        this.storagePath = storagePath;
         this.pathSeparator = path.sep;
         var p = new Promise(function (resolve, reject) {
             _this._onReady = { promise: null, resolve: resolve, reject: reject };
@@ -30,26 +54,70 @@ var TypeScriptServiceClient = (function () {
         this.requestQueue = [];
         this.pendingResponses = 0;
         this.callbacks = Object.create(null);
-        this.tsdk = vscode_1.workspace.getConfiguration().get('typescript.tsdk', null);
+        var configuration = vscode_1.workspace.getConfiguration();
+        this.tsdk = configuration.get('typescript.tsdk', null);
+        this._experimentalAutoBuild = configuration.get('typescript.tsserver.experimentalAutoBuild', false);
+        this.trace = this.readTrace();
         vscode_1.workspace.onDidChangeConfiguration(function () {
+            _this.trace = _this.readTrace();
             var oldTask = _this.tsdk;
             _this.tsdk = vscode_1.workspace.getConfiguration().get('typescript.tsdk', null);
             if (_this.servicePromise === null && oldTask !== _this.tsdk) {
                 _this.startService();
             }
         });
+        if (this.packageInfo && this.packageInfo.aiKey) {
+            this.telemetryReporter = new vscode_extension_telemetry_1.default(this.packageInfo.name, this.packageInfo.version, this.packageInfo.aiKey);
+        }
         this.startService();
     }
-    TypeScriptServiceClient.prototype.onReady = function () {
-        return this._onReady.promise;
+    TypeScriptServiceClient.prototype.readTrace = function () {
+        var result = Trace.fromString(vscode_1.workspace.getConfiguration().get('typescript.tsserver.trace', 'off'));
+        if (result === Trace.Off && !!process.env.TSS_TRACE) {
+            result = Trace.Messages;
+        }
+        if (result !== Trace.Off && !this.output) {
+            this.output = vscode_1.window.createOutputChannel(localize(0, null));
+        }
+        return result;
     };
-    Object.defineProperty(TypeScriptServiceClient.prototype, "trace", {
+    Object.defineProperty(TypeScriptServiceClient.prototype, "experimentalAutoBuild", {
         get: function () {
-            return TypeScriptServiceClient.Trace;
+            return this._experimentalAutoBuild;
         },
         enumerable: true,
         configurable: true
     });
+    TypeScriptServiceClient.prototype.onReady = function () {
+        return this._onReady.promise;
+    };
+    Object.defineProperty(TypeScriptServiceClient.prototype, "packageInfo", {
+        get: function () {
+            if (this._packageInfo !== undefined) {
+                return this._packageInfo;
+            }
+            var packagePath = path.join(__dirname, './../package.json');
+            var extensionPackage = require(packagePath);
+            if (extensionPackage) {
+                this._packageInfo = {
+                    name: extensionPackage.name,
+                    version: extensionPackage.version,
+                    aiKey: extensionPackage.aiKey
+                };
+            }
+            else {
+                this._packageInfo = null;
+            }
+            return this._packageInfo;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    TypeScriptServiceClient.prototype.logTelemetry = function (eventName, properties) {
+        if (this.telemetryReporter) {
+            this.telemetryReporter.sendTelemetryEvent(eventName, properties);
+        }
+    };
     TypeScriptServiceClient.prototype.service = function () {
         if (this.servicePromise) {
             return this.servicePromise;
@@ -72,20 +140,18 @@ var TypeScriptServiceClient = (function () {
                 modulePath = path.join(vscode_1.workspace.rootPath, this.tsdk, 'tsserver.js');
             }
         }
-        else if (!!process.env['CODE_TSJS'] || !!process.env['VSCODE_TSJS']) {
-            var candidate = path.join(vscode_1.workspace.rootPath, 'node_modules', 'typescript', 'lib', 'tsserver.js');
-            if (fs.existsSync(candidate)) {
-                modulePath = candidate;
-            }
-        }
         if (!fs.existsSync(modulePath)) {
-            vscode_1.window.showErrorMessage("The path " + path.dirname(modulePath) + " doesn't point to a valid tsserver install. TypeScript language features will be disabled.");
+            vscode_1.window.showErrorMessage(localize(1, null, path.dirname(modulePath)));
             return;
         }
+        var label = this.getTypeScriptVersion(modulePath);
+        var tooltip = modulePath;
+        VersionStatus.enable(!!this.tsdk);
+        VersionStatus.setInfo(label, tooltip);
         this.servicePromise = new Promise(function (resolve, reject) {
             try {
                 var options = {
-                    execArgv: [] //[`--debug-brk=5859`]
+                    execArgv: [] // [`--debug-brk=5859`]
                 };
                 var value = process.env.TSS_DEBUG;
                 if (value) {
@@ -97,7 +163,8 @@ var TypeScriptServiceClient = (function () {
                 electron.fork(modulePath, [], options, function (err, childProcess) {
                     if (err) {
                         _this.lastError = err;
-                        vscode_1.window.showErrorMessage("TypeScript language server couldn't be started. Error message is: " + err.message);
+                        vscode_1.window.showErrorMessage(localize(2, null, err.message || err));
+                        _this.logTelemetry('error', { message: err.message });
                         return;
                     }
                     _this.lastStart = Date.now();
@@ -117,15 +184,50 @@ var TypeScriptServiceClient = (function () {
             }
             catch (error) {
                 reject(error);
-                _this._onReady.reject();
             }
         });
         this.serviceStarted(resendModels);
     };
     TypeScriptServiceClient.prototype.serviceStarted = function (resendModels) {
+        if (this._experimentalAutoBuild && this.storagePath) {
+            try {
+                fs.mkdirSync(this.storagePath);
+            }
+            catch (error) {
+            }
+            this.execute('configure', {
+                autoBuild: true,
+                metaDataDirectory: this.storagePath
+            });
+        }
         if (resendModels) {
             this.host.populateService();
         }
+    };
+    TypeScriptServiceClient.prototype.getTypeScriptVersion = function (serverPath) {
+        var custom = localize(3, null);
+        var p = serverPath.split(path.sep);
+        if (p.length <= 2) {
+            return custom;
+        }
+        var p2 = p.slice(0, -2);
+        var modulePath = p2.join(path.sep);
+        var fileName = path.join(modulePath, 'package.json');
+        if (!fs.existsSync(fileName)) {
+            return custom;
+        }
+        var contents = fs.readFileSync(fileName).toString();
+        var desc = null;
+        try {
+            desc = JSON.parse(contents);
+        }
+        catch (err) {
+            return custom;
+        }
+        if (!desc.version) {
+            return custom;
+        }
+        return desc.version;
     };
     TypeScriptServiceClient.prototype.serviceExited = function (restart) {
         var _this = this;
@@ -140,11 +242,12 @@ var TypeScriptServiceClient = (function () {
             var startService = true;
             if (this.numberRestarts > 5) {
                 if (diff < 60 * 1000 /* 1 Minutes */) {
-                    vscode_1.window.showWarningMessage('The Typescript language service died unexpectedly 5 times in the last 5 Minutes. Please consider to open a bug report.');
+                    vscode_1.window.showWarningMessage(localize(4, null));
                 }
                 else if (diff < 2 * 1000 /* 2 seconds */) {
                     startService = false;
-                    vscode_1.window.showErrorMessage('The Typesrript language service died 5 times right after it got started. The service will not be restarted. Please open a bug report.');
+                    vscode_1.window.showErrorMessage(localize(5, null));
+                    this.logTelemetry('serviceExited');
                 }
             }
             if (startService) {
@@ -210,9 +313,7 @@ var TypeScriptServiceClient = (function () {
     TypeScriptServiceClient.prototype.sendRequest = function (requestItem) {
         var _this = this;
         var serverRequest = requestItem.request;
-        if (TypeScriptServiceClient.Trace) {
-            console.log('TypeScript Service: sending request ' + serverRequest.command + '(' + serverRequest.seq + '). Response expected: ' + (requestItem.callbacks ? 'yes' : 'no') + '. Current queue length: ' + this.requestQueue.length);
-        }
+        this.traceRequest(serverRequest, !!requestItem.callbacks);
         if (requestItem.callbacks) {
             this.callbacks[serverRequest.seq] = requestItem.callbacks;
             this.pendingResponses++;
@@ -232,14 +333,14 @@ var TypeScriptServiceClient = (function () {
         for (var i = 0; i < this.requestQueue.length; i++) {
             if (this.requestQueue[i].request.seq === seq) {
                 this.requestQueue.splice(i, 1);
-                if (TypeScriptServiceClient.Trace) {
-                    console.log('TypeScript Service: canceled request with sequence number ' + seq);
+                if (this.trace !== Trace.Off) {
+                    this.output.append("TypeScript Service: canceled request with sequence number " + seq + "\n");
                 }
                 return true;
             }
         }
-        if (TypeScriptServiceClient.Trace) {
-            console.log('TypeScript Service: tried to cancel request with sequence number ' + seq + '. But request got already delivered.');
+        if (this.trace !== Trace.Off) {
+            this.output.append("TypeScript Service: tried to cancel request with sequence number " + seq + ". But request got already delivered.\n");
         }
         return false;
     };
@@ -249,21 +350,25 @@ var TypeScriptServiceClient = (function () {
                 var response = message;
                 var p = this.callbacks[response.request_seq];
                 if (p) {
-                    if (TypeScriptServiceClient.Trace) {
-                        console.log('TypeScript Service: request ' + response.command + '(' + response.request_seq + ') took ' + (Date.now() - p.start) + 'ms. Success: ' + response.success);
-                    }
+                    this.traceResponse(response, p.start);
                     delete this.callbacks[response.request_seq];
                     this.pendingResponses--;
                     if (response.success) {
                         p.c(response);
                     }
                     else {
+                        this.logTelemetry('requestFailed', {
+                            id: response.request_seq.toString(),
+                            command: response.command,
+                            message: response.message ? response.message : 'No detailed message provided'
+                        });
                         p.e(response);
                     }
                 }
             }
             else if (message.type === 'event') {
                 var event = message;
+                this.traceEvent(event);
                 if (event.event === 'syntaxDiag') {
                     this.host.syntaxDiagnosticsReceived(event);
                 }
@@ -279,8 +384,35 @@ var TypeScriptServiceClient = (function () {
             this.sendNextRequests();
         }
     };
-    TypeScriptServiceClient.Trace = process.env.TSS_TRACE || false;
+    TypeScriptServiceClient.prototype.traceRequest = function (request, responseExpected) {
+        if (this.trace === Trace.Off) {
+            return;
+        }
+        this.output.append("Sending request: " + request.command + " (" + request.seq + "). Response expected: " + (responseExpected ? 'yes' : 'no') + ". Current queue length: " + this.requestQueue.length + "\n");
+        if (this.trace === Trace.Verbose && request.arguments) {
+            this.output.append("Arguments: " + JSON.stringify(request.arguments, null, 4) + "\n\n");
+        }
+    };
+    TypeScriptServiceClient.prototype.traceResponse = function (response, startTime) {
+        if (this.trace === Trace.Off) {
+            return;
+        }
+        this.output.append("Response received: " + response.command + " (" + response.request_seq + "). Request took " + (Date.now() - startTime) + " ms. Success: " + response.success + " " + (!response.success ? '. Message: ' + response.message : '') + "\n");
+        if (this.trace === Trace.Verbose && response.body) {
+            this.output.append("Result: " + JSON.stringify(response.body, null, 4) + "\n\n");
+        }
+    };
+    TypeScriptServiceClient.prototype.traceEvent = function (event) {
+        if (this.trace === Trace.Off) {
+            return;
+        }
+        this.output.append("Event received: " + event.event + " (" + event.seq + ").\n");
+        if (this.trace === Trace.Verbose && event.body) {
+            this.output.append("Data: " + JSON.stringify(event.body, null, 4) + "\n\n");
+        }
+    };
     return TypeScriptServiceClient;
-})();
+}());
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = TypeScriptServiceClient;
+//# sourceMappingURL=typescriptServiceClient.js.map

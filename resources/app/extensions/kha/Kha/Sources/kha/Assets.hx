@@ -47,43 +47,48 @@ class Assets {
 	public static var fonts: FontList = new FontList();
 	public static var videos: VideoList = new VideoList();
 	
+	public static var progress: Float; // moves from 0 to 1, use for loading screens
+
 	public static function loadEverything(callback: Void -> Void): Void {
-		var filesLeft = 0;
+		var fileCount = 0;
 		for (blob in Type.getInstanceFields(BlobList)) {
 			if (blob.endsWith("Load")) {
-				++filesLeft;
+				++fileCount;
 			}
 		}
 		for (image in Type.getInstanceFields(ImageList)) {
 			if (image.endsWith("Load")) {
-				++filesLeft;
+				++fileCount;
 			}
 		}
 		for (sound in Type.getInstanceFields(SoundList)) {
 			if (sound.endsWith("Load")) {
-				++filesLeft;
+				++fileCount;
 			}
 		}
 		for (font in Type.getInstanceFields(FontList)) {
 			if (font.endsWith("Load")) {
-				++filesLeft;
+				++fileCount;
 			}
 		}
 		for (video in Type.getInstanceFields(VideoList)) {
 			if (video.endsWith("Load")) {
-				++filesLeft;
+				++fileCount;
 			}
 		}
 		
-		if (filesLeft == 0) {
+		if (fileCount == 0) {
 			callback();
 			return;
 		}
+
+		var filesLeft = fileCount;
 		
 		for (blob in Type.getInstanceFields(BlobList)) {
 			if (blob.endsWith("Load")) {
 				Reflect.field(blobs, blob)(function () {
 					--filesLeft;
+					progress = 1 - filesLeft / fileCount;
 					if (filesLeft == 0) callback();
 				});
 			}
@@ -92,6 +97,7 @@ class Assets {
 			if (image.endsWith("Load")) {
 				Reflect.field(images, image)(function () {
 					--filesLeft;
+					progress = 1 - filesLeft / fileCount;
 					if (filesLeft == 0) callback();
 				});
 			}
@@ -99,8 +105,12 @@ class Assets {
 		for (sound in Type.getInstanceFields(SoundList)) {
 			if (sound.endsWith("Load")) {
 				Reflect.field(sounds, sound)(function () {
-					--filesLeft;
-					if (filesLeft == 0) callback();
+					var sound: Sound = Reflect.field(sounds, sound.substring(0, sound.length - 4));
+					sound.uncompress(function () {
+						--filesLeft;
+						progress = 1 - filesLeft / fileCount;
+						if (filesLeft == 0) callback();
+					});
 				});
 			}
 		}
@@ -108,6 +118,7 @@ class Assets {
 			if (font.endsWith("Load")) {
 				Reflect.field(fonts, font)(function () {
 					--filesLeft;
+					progress = 1 - filesLeft / fileCount;
 					if (filesLeft == 0) callback();
 				});
 			}
@@ -116,6 +127,7 @@ class Assets {
 			if (video.endsWith("Load")) {
 				Reflect.field(videos, video)(function () {
 					--filesLeft;
+					progress = 1 - filesLeft / fileCount;
 					if (filesLeft == 0) callback();
 				});
 			}

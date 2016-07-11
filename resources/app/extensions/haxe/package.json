@@ -1,86 +1,151 @@
 {
-	"name": "haxe",
-	"description": "Haxe Language Extension",
-	"version": "0.0.2",
-	"publisher": "Jeff Ward & Dan Korostelev & Patrick Le Clec'h",
-	"engines": {
-		"vscode": "^0.10.1"
-	},
-	"categories": [
-		"Languages"
-	],
-	"activationEvents": [
-		"onLanguage:haxe"
-	],
-	"main": "./haxe.js",
-	"contributes": {
-		"commands": [
-			{
-				"command": "haxe.hello",
-				"title": "Hello from Haxe!"
-			}
-		],	
-		"languages": [
-			{
-				"id": "haxe",
-				"aliases": ["Haxe", "haxe"],
-				"extensions": [".hx",".hxsl",".hscript"],
-				"configuration": "./haxe.configuration.json"
-			},
-			{
-				"id": "hxml",
-				"aliases": ["HXML", "hxml"],
-				"extensions": [".hxml"],
-				"configuration": "./hxml.configuration.json"
-			}
-		],
-		"grammars": [
-			{
-				"language": "haxe",
-				"scopeName": "source.haxe",
-				"path": "./syntaxes/haxe.tmLanguage"
-			},
-			{
-				"language": "hxml",
-				"scopeName": "source.hxml",
-				"path": "./syntaxes/hxml.tmLanguage"
-			}
-		],
+    "name": "vshaxe",
+    "version": "0.1.0",
+    "publisher": "nadako",
+    "engines": {"vscode": "^1.0.0"},
+    "displayName": "Haxe Support",
+    "description": "Haxe language support for Visual Studio Code",
+    "categories": ["Languages", "Linters"],
+    "galleryBanner": {
+        "theme": "dark",
+        "color": "#A84B38"
+    },
+    "icon": "haxe-logo.png",
+    "author": "Dan Korostelev",
+    "license": "MIT",
+    "dependencies": {
+        "vscode-languageclient": "^2.0.0"
+    },
+    "bugs": "https://github.com/vshaxe/vshaxe/issues",
+    "homepage": "https://github.com/vshaxe/vshaxe/blob/master/README.md",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/vshaxe/vshaxe.git"
+    },
+    "scripts": {
+        "vscode:prepublish": "haxe build.hxml"
+    },
+    "main": "bin/client.js",
+    "activationEvents": [
+        "onLanguage:haxe",
+        "onCommand:haxe.restartLanguageServer",
+        "onCommand:haxe.initProject",
+        "onCommand:haxe.selectDisplayConfiguration"
+    ],
+    "contributes": {
         "configuration": {
-            "type": "object",
             "title": "Haxe configuration",
             "properties": {
-                "haxe.haxePath": {
-                "type": "string",
-                "default": "",
-                "description": "Where to find haxe executable. If not set must be in your global path"
+                "haxe.displayConfigurations": {
+                    "description": "Array of switchable configurations for haxe completion server. Each configuration is an array of command-line arguments, see item documentation for more details.",
+                    "type": "array",
+                    "default": ["project-debug-html5.hxml"],
+                    "items": {
+                        "description": "Command-line arguments passed to haxe completion server. Can contain hxml files. Relative paths will be resolved against workspace root.",
+                        "type": "array",
+                        "items": {"type": "string"}
+                    }
                 },
-                "haxe.haxelibPath": {
-                "type": "string",
-                "default": "",
-                "description": "Where to find haxelib executable. If not set must be in your global path"
+                "haxe.displayServer": {
+                    "description": "Haxe completion server configuration",
+                    "type": "object",
+                    "default": {},
+                    "properties": {
+                        "haxePath": {
+                            "description": "Path to the Haxe executable used for the completion server",
+                            "type": "string",
+                            "default": "haxe"
+                        },
+                        "arguments": {
+                            "description": "Array of arguments passed to the haxe completion server at start. Can be used for debugging completion server issues, for example by adding \"-v\" argument.",
+                            "type": "array",
+                            "default": [],
+                            "items": {"type": "string"}
+                        },
+                        "env": {
+                            "description": "Additional environment variables used to start the haxe completion server",
+                            "type": "object",
+                            "default": {},
+                            "additionalProperties": {"type": "string"}
+                        },
+
+                        "windows": {"description": "Overrides for Windows"},
+                        "linux": {"description": "Overrides for Linux"},
+                        "osx": {"description": "Overrides for Mac"}
+                    }
                 },
-                "haxe.haxeDefaultBuildFile": {
-                "type": "string",
-                "default": "project-debug-html5.hxml",
-                "description": "Name of your default build hxml file"
-                },
-                "haxe.haxeServerHost": {
-                "type": "string",
-                "default": "127.0.0.1",
-                "description": "Address of the haxe server"
-                },
-                "haxe.haxeServerPort": {
-                "type": "integer",
-                "default": 6000,
-                "description": "Port number of the haxe server"
-                },
-                "haxe.haxeDiagnosticDelay": {
-                "type": "integer",
-                "default": 500,
-                "description": "Time (in ms) after we can launch a file validation"
+                "haxe.enableDiagnostics": {
+                    "description": "Enable automatic diagnostics of Haxe files, run automatically on open and save.",
+                    "type": "boolean",
+                    "default": true
                 }
             }
-        }
-	}
+        },
+        "commands": [
+            {
+                "title": "Restart language server",
+                "command": "haxe.restartLanguageServer",
+                "category": "Haxe"
+            },
+            {
+                "title": "Initialize VS Code project",
+                "command": "haxe.initProject",
+                "category": "Haxe"
+            },
+            {
+                "title": "Select display configuration",
+                "command": "haxe.selectDisplayConfiguration",
+                "category": "Haxe"
+            }
+        ],
+        "languages": [
+            {
+                "id": "haxe",
+                "aliases": ["Haxe", "haxe"],
+                "extensions": [".hx"],
+                "configuration": "./haxe.configuration.json"
+            },
+            {
+                "id": "hxml",
+                "aliases": ["HXML", "hxml"],
+                "extensions": [".hxml"],
+                "configuration": "./hxml.configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "haxe",
+                "scopeName": "source.hx",
+                "path": "./syntaxes/haxe.json"
+            },
+            {
+                "language": "hxml",
+                "scopeName": "source.hxml",
+                "path": "./syntaxes/hxml.json"
+            }
+        ],
+        "snippets": [
+            {
+                "language": "haxe",
+                "path": "./snippets/haxe.json"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "haxe",
+                "enableBreakpointsFor": {
+                    "languageIds": ["haxe"]
+                }
+            }
+        ],
+        "jsonValidation": [
+            {
+                "fileMatch": "haxelib.json",
+                "url": "http://json.schemastore.org/haxelib"
+            }
+        ]
+    },
+    "extensionDependencies": [
+        "ktx.kha"
+    ]
 }

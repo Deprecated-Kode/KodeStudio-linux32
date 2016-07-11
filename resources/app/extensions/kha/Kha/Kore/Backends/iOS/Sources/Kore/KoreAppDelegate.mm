@@ -2,8 +2,8 @@
 #import "GLView.h"
 #import "GLViewController.h"
 #include "pch.h"
-#include <Kore/Application.h>
 #include <Kore/Math/Core.h>
+#include <Kore/System.h>
 #include <wchar.h>
 
 @implementation KoreAppDelegate
@@ -43,7 +43,10 @@ int kore(int argc, char** argv);
 	
 	//glView = [[GLView alloc] initWithFrame:CGRectMake(0, 0, Kore::max(screenBounds.size.width, screenBounds.size.height), Kore::max(screenBounds.size.width, screenBounds.size.height))];
 	GLViewController* glViewController = [[GLViewController alloc] init];
-	//glViewController.view = glView;
+#ifndef SYS_TVOS
+	glViewController.view.multipleTouchEnabled = YES;
+#endif
+    //glViewController.view = glView;
 	//[glViewController ]
 	//[window addSubview:glView];
 	[window setRootViewController:glViewController];
@@ -54,6 +57,7 @@ int kore(int argc, char** argv);
     return YES;
 }
 
+#ifndef SYS_TVOS
 static Kore::Orientation convertOrientation(UIDeviceOrientation orientation) {
 	switch (orientation) {
 		case UIDeviceOrientationLandscapeLeft:
@@ -83,6 +87,7 @@ static UIInterfaceOrientation convertAppleOrientation(UIDeviceOrientation orient
 			return lastOrientation;
 	}
 }
+#endif
 
 void KoreUpdateKeyboard();
 /*
@@ -93,26 +98,26 @@ void KoreUpdateKeyboard();
 }
 */
 - (void)applicationWillEnterForeground:(UIApplication*)application {
-	if (Kore::Application::the() != nullptr && Kore::Application::the()->foregroundCallback != nullptr) Kore::Application::the()->foregroundCallback();
+    Kore::System::foregroundCallback();
 }
 
 - (void)applicationDidBecomeActive:(UIApplication*)application {
-	if (Kore::Application::the() != nullptr && Kore::Application::the()->resumeCallback != nullptr) Kore::Application::the()->resumeCallback();
+    Kore::System::resumeCallback();
 	//[[UIDevice currentDevice] beginGeneratingDeviceOrientationNotifications];
 	//[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didRotate:) name:UIDeviceOrientationDidChangeNotification object:nil];
 }
 
 - (void)applicationWillResignActive:(UIApplication*)application {
-	if (Kore::Application::the() != nullptr && Kore::Application::the()->pauseCallback != nullptr) Kore::Application::the()->pauseCallback();
+    Kore::System::pauseCallback();
 	//[[NSNotificationCenter defaultCenter] removeObserver:self name:UIDeviceOrientationDidChangeNotification object:nil];
 }
 
 - (void)applicationDidEnterBackground:(UIApplication*)application {
-	if (Kore::Application::the() != nullptr && Kore::Application::the()->backgroundCallback != nullptr) Kore::Application::the()->backgroundCallback();
+    Kore::System::backgroundCallback();
 }
 
 - (void)applicationWillTerminate:(UIApplication*)application {
-	if (Kore::Application::the() != nullptr && Kore::Application::the()->shutdownCallback != nullptr) Kore::Application::the()->shutdownCallback();
+    Kore::System::shutdownCallback();
 }
 
 //- (void)dealloc {

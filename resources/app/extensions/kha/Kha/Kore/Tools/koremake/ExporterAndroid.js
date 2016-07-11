@@ -17,45 +17,63 @@ class ExporterAndroid extends Exporter {
 		let project = solution.getProjects()[0];
 		let safename = solution.getName().replaceAll(' ', '-');
 		this.safename = safename;
+		let targetOptions = {
+			package: 'com.ktxsoftware.kha',
+			screenOrientation: 'sensor'
+		};
+		if (project.targetOptions != null && project.targetOptions.android != null) {
+			let userOptions = project.targetOptions.android;
+			if (userOptions.package != null) targetOptions.package = userOptions.package;
+			if (userOptions.screenOrientation != null) targetOptions.screenOrientation = userOptions.screenOrientation;
+		}
 
 		const indir = path.join(__dirname, 'Data', 'android');
 		const outdir = path.join(to.toString(), safename);
 
 		fs.copySync(path.join(indir, 'build.gradle'), path.join(outdir, 'build.gradle'));
-		fs.copySync(path.join(indir, 'gradle.properties'), path.join(outdir, 'gradle.properties'));
+		//fs.copySync(path.join(indir, 'gradle.properties'), path.join(outdir, 'gradle.properties'));
 		fs.copySync(path.join(indir, 'gradlew'), path.join(outdir, 'gradlew'));
 		fs.copySync(path.join(indir, 'gradlew.bat'), path.join(outdir, 'gradlew.bat'));
+		//fs.copySync(path.join(indir, 'local.properties'), path.join(outdir, 'local.properties'));
 		fs.copySync(path.join(indir, 'settings.gradle'), path.join(outdir, 'settings.gradle'));
 
 		let nameiml = fs.readFileSync(path.join(indir, 'name.iml'), {encoding: 'utf8'});
 		nameiml = nameiml.replaceAll('{name}', safename);
 		fs.writeFileSync(path.join(outdir, safename + '.iml'), nameiml, {encoding: 'utf8'});
 
-		fs.copySync(path.join(indir, 'app', 'proguard-rules.pro'), path.join(outdir, 'app', 'proguard-rules.pro'));
+		fs.ensureDirSync(path.join(outdir, 'app'));
+		//fs.copySync(path.join(indir, 'app', 'proguard-rules.pro'), path.join(outdir, 'app', 'proguard-rules.pro'));
 
 		let flags = '\n';
-		flags += '        cppFlags += "-fexceptions"\n';
-		flags += '        cppFlags += "-frtti"\n';
+        flags += "            cppFlags.add('-std=c++11')\n";
+		flags += "            cppFlags.add('-fexceptions')\n";
+		flags += "            cppFlags.add('-frtti')\n";
+
+		// Because of https://tls.mbed.org/kb/development/arm-thumb-error-r7-cannot-be-used-in-asm-here
+		// TODO: Remove when clang works
+		flags += "            cppFlags.add('-fomit-frame-pointer')\n";
+		flags += "            CFlags.add('-fomit-frame-pointer')\n";
+
 		for (let def of project.getDefines()) {
-			flags += '        cppFlags += "-D' + def + '"\n';
-			flags += '        CFlags += "-D' + def + '"\n';
+			flags += "            cppFlags.add('-D" + def + "')\n";
+			flags += "            CFlags.add('-D" + def + "')\n";
 		}
 		for (let inc of project.getIncludeDirs()) {
 			inc = inc.replaceAll('\\', '/');
 			while (inc.startsWith('../')) inc = inc.substr(3);
-			flags += '        cppFlags += "-I${file("src/main/jni/' + inc + '")}".toString()\n';
-			flags += '        CFlags += "-I${file("src/main/jni/' + inc + '")}".toString()\n';
+			flags += '            cppFlags.add("-I${file("src/main/jni/' + inc + '")}".toString())\n';
+			flags += '            CFlags.add("-I${file("src/main/jni/' + inc + '")}".toString())\n';
 		}
 
 		let gradle = fs.readFileSync(path.join(indir, 'app', 'build.gradle'), {encoding: 'utf8'});
-		gradle = gradle.replaceAll('{name}', safename);
+		gradle = gradle.replaceAll('{package}', targetOptions.package);
 		gradle = gradle.replaceAll('{flags}', flags);
 
 		let javasources = '';
 		for (let dir of project.getJavaDirs()) {
-			javasources += "                    srcDir '" + path.relative(path.join(outdir, 'app'), from.resolve(dir).toString()).replaceAll('\\', '/') + "'\n";
+			javasources += "                        srcDir '" + path.relative(path.join(outdir, 'app'), from.resolve(dir).toString()).replaceAll('\\', '/') + "'\n";
 		}
-		javasources += "                    srcDir '" + path.relative(path.join(outdir, 'app'), path.join(Project.koreDir.toString(), 'Backends', 'Android', 'Java-Sources')).replaceAll('\\', '/') + "'\n";
+		javasources += "                        srcDir '" + path.relative(path.join(outdir, 'app'), path.join(Project.koreDir.toString(), 'Backends', 'Android', 'Java-Sources')).replaceAll('\\', '/') + "'\n";
 		gradle = gradle.replaceAll('{javasources}', javasources);
 
 		//gradle = gradle.replaceAll('{cppsources}', ''); // Currently at the default position
@@ -68,7 +86,13 @@ class ExporterAndroid extends Exporter {
 		fs.ensureDirSync(path.join(outdir, 'app', 'src'));
 		//fs.emptyDirSync(path.join(outdir, 'app', 'src'));
 
-		fs.copySync(path.join(indir, 'main', 'AndroidManifest.xml'), path.join(outdir, 'app', 'src', 'main', 'AndroidManifest.xml'));
+		fs.ensureDirSync(path.join(outdir, 'app', 'src', 'main'));
+
+		let manifest = fs.readFileSync(path.join(indir, 'main', 'AndroidManifest.xml'), {encoding: 'utf8'});
+		manifest = manifest.replaceAll('{package}', targetOptions.package);
+		manifest = manifest.replaceAll('{screenOrientation}', targetOptions.screenOrientation);
+		fs.ensureDirSync(path.join(outdir, 'app', 'src', 'main'));
+		fs.writeFileSync(path.join(outdir, 'app', 'src', 'main', 'AndroidManifest.xml'), manifest, {encoding: 'utf8'});
 
 		let strings = fs.readFileSync(path.join(indir, 'main', 'res', 'values', 'strings.xml'), {encoding: 'utf8'});
 		strings = strings.replaceAll('{name}', solution.getName());
@@ -92,7 +116,7 @@ class ExporterAndroid extends Exporter {
 		fs.copySync(path.join(indir, 'idea', 'gradle.xml'), path.join(outdir, '.idea', 'gradle.xml'));
 		fs.copySync(path.join(indir, 'idea', 'misc.xml'), path.join(outdir, '.idea', 'misc.xml'));
 		fs.copySync(path.join(indir, 'idea', 'runConfigurations.xml'), path.join(outdir, '.idea', 'runConfigurations.xml'));
-		fs.copySync(path.join(indir, 'idea', 'vcs.xml'), path.join(outdir, '.idea', 'vcs.xml'));
+		//fs.copySync(path.join(indir, 'idea', 'vcs.xml'), path.join(outdir, '.idea', 'vcs.xml'));
 		fs.copySync(path.join(indir, 'idea', 'copyright', 'profiles_settings.xml'), path.join(outdir, '.idea', 'copyright', 'profiles_settings.xml'));
 
 		let namename = fs.readFileSync(path.join(indir, 'idea', 'name'), {encoding: 'utf8'});
@@ -106,11 +130,11 @@ class ExporterAndroid extends Exporter {
 		if (project.getDebugDir().length > 0) this.copyDirectory(from.resolve(project.getDebugDir()), to.resolve(Paths.get(safename, 'app', 'src', 'main', 'assets')));
 
 		for (let file of project.getFiles()) {
-			let localFile = file;
+			let localFile = file.file;
 			while (localFile.startsWith('../')) localFile = localFile.substr(3);
 			let target = to.resolve(Paths.get(safename, 'app', 'src', 'main', 'jni')).resolve(localFile);
 			this.createDirectory(Paths.get(target.path.substr(0, target.path.lastIndexOf('/'))));
-			Files.copyIfDifferent(from.resolve(file), target, true);
+			Files.copyIfDifferent(from.resolve(file.file), target, true);
 		}
 	}
 
@@ -181,7 +205,8 @@ class ExporterAndroid extends Exporter {
 
 		this.p("LOCAL_MODULE    := Kore");
 		let files = "";
-		for (let filename of project.getFiles()) {
+		for (let fileobject of project.getFiles()) {
+			let filename = fileobject.file; 
 			if (filename.endsWith(".c") || filename.endsWith(".cpp") || filename.endsWith(".cc") || filename.endsWith(".s")) files += to.resolve('jni').relativize(from.resolve(filename)).toString().replaceAll('\\', '/') + " ";
 		}
 		this.p("LOCAL_SRC_FILES := " + files);

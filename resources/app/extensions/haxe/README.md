@@ -1,32 +1,75 @@
-# vscode-haxe
-Haxe language extension for Visual Studio Code
+# Haxe Support for Visual Studio Code
 
-This extension provides:
-- Syntax highlighting for .hx and .hxml
-- Code completion (ALPHA / EXPERIMENTAL, see below)
-- Jump / peek definition (ctrl-click / ctrl-hover)
+This is an extension for [Visual Studio Code](https://code.visualstudio.com) that adds support for the [Haxe](http://haxe.org/) language,
+leveraging [Haxe Language Server](https://github.com/vshaxe/haxe-languageserver).
 
-Feature  | Preview
-------------- | -------------
-Code Completion  |  <img src="https://lh3.googleusercontent.com/-ekHamgDiuZM/VnOd05QH04I/AAAAAAAAO4I/cfu718KBlO8/s1600/test.gif" width=400>
-Peek definition  | <img src="https://lh3.googleusercontent.com/-0cTfJGLLrpk/VoBPk4GAz_I/AAAAAAAAPKs/bWvpJBDjwnA/s400/definition_peek.gif" width=400>
+**Status**: Should be usable, however it's still very new.
 
-#Installation
-Place the vscode-haxe directory in your `.vscode/extensions` directory:
-- Windows: `%USERPROFILE%\.vscode\extensions`
-- Linux / Mac: `~/.vscode/extensions`
+**IMPORTANT**: This requires Haxe version 3.3-rc1 or later (e.g. development) due to usage of [`-D display-stdin`](https://github.com/HaxeFoundation/haxe/pull/5120),
+[`--wait stdio`](https://github.com/HaxeFoundation/haxe/pull/5188) and ton of other fixes and additions related to IDE support.
 
-#Code completion status: ALPHA
-The code completion in this extension is currently in alpha. There are bugs, limitations, and requirements that still need to be worked out. There's an effort to standardize Haxe IDE support over at [snowkit/Tides](https://github.com/snowkit/tides). When this is ready, I'll integrate it (no need to duplicate effort and provide divergent experiences.)
+## Features
 
-#Current limitations:
-- Currently only supports code/package completion, no function signatures, etc.
-- You must start the haxe completion server yourself. Luckily it's easy. Open a terminal and run `haxe --wait 6000` and let it sit there while you edit.
-- Currently requires a file named `build.hxml` in the root of the workspace (the folder you open in Code.)
+### Type hint
+![Type hint](images/type.png)
 
-I've provided a `test_proj` for you to try it. Start your completion server, open this folder in Code, and try it! You can add haxelib libraries to `test_proj`'s build.hxml if you want to see if they work.
+### Goto definition
+![Goto definition](images/position.png)
 
-#Framework notes:
-Some frameworks support the creation of .hxml files so you can use completion with your project.
+### Completion
+![Field completion](images/field.png)
 
-**OpenFL's** display command will show the contents of the necessary .hxml file. On Windows, paste the output into a build.hxml file, or on Linux/Mac, you can create a build.hxml file in your project directory by running, e.g. `openfl display neko > build.hxml` (substitue the proper platform name for your project.)
+### Peek definition
+![Peek definition](images/peek.png)
+
+### Document symbols
+![Document symbols](images/symbols.png)
+
+### Unused imports
+![Unused imports](images/unusedimport.png)
+
+## Commands
+
+### Initialize VS Code project
+
+Scaffolds a very basic haxe project. Can also be used on an existing project to generate `.vscode` workspace
+folder with the build task and example vshaxe configuration.
+
+### Restart language server
+
+Restarts language server and haxe completion server. Use if anything goes wrong or to reload haxe-languageserver code when
+developing.
+
+## Build task
+
+Example `tasks.json` file (the problem matcher is submitted to https://github.com/Microsoft/vscode/pull/5370)
+```json
+{
+    "version": "0.1.0",
+    "command": "haxe",
+    "args": ["build.hxml"],
+    "problemMatcher": {
+        "owner": "haxe",
+        "pattern": {
+            "regexp": "^(.+):(\\d+): (?:lines \\d+-(\\d+)|character(?:s (\\d+)-| )(\\d+)) : (?:(Warning) : )?(.*)$",
+            "file": 1,
+            "line": 2,
+            "endLine": 3,
+            "column": 4,
+            "endColumn": 5,
+            "severity": 6,
+            "message": 7
+        }
+    }
+}
+```
+
+## Hacking
+
+1. Recursively clone this repo in `~/.vscode/extensions`: `git clone --recursive https://github.com/vshaxe/vshaxe`.
+2. Change current directory to the cloned one: `cd ~/.vscode/extensions/vshaxe`.
+3. Do `npm install` (to install `vscode-languageclient` module required to connect to the language server).
+4. Do `haxe build.hxml` (that will build both client and server)
+5. Use `haxe.displayConfigurations` setting to provide haxe command-line arguments used for completion, such as `-cp`, `-lib`, etc.
+As with normal haxe command-line arguments, you can specify an `.hxml` file, just beware that it should only contain arguments suitable for completion,
+so no `--each`/`--next`/`-cmd`/etc.

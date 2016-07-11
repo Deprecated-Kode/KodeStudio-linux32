@@ -2,6 +2,7 @@
 #include "Image.h"
 #include <Kore/IO/FileReader.h>
 #include <Kore/Graphics/Graphics.h>
+#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include <stdio.h>
 #include <string.h>
@@ -20,6 +21,8 @@ namespace {
 
 int Image::sizeOf(Image::Format format) {
 	switch (format) {
+	case Image::RGBA128:
+		return 16;
 	case Image::RGBA32:
 		return 4;
 	case Image::Grey8:
@@ -131,6 +134,15 @@ Image::Image(const char* filename, bool readable) : format(RGBA32), readable(rea
 		}
 		dataSize = width * height * 4;
 	}
+	else if (endsWith(filename, ".hdr")) {
+		int size = file.size();
+		int comp;
+		compressed = false;
+		internalFormat = 0;
+		hdrData = stbi_loadf_from_memory((u8*)file.readAll(), size, &width, &height, &comp, 4);
+		dataSize = width * height * 16;
+		format = RGBA128;
+	}
 	else {
 		int size = file.size();
 		int comp;
@@ -142,8 +154,16 @@ Image::Image(const char* filename, bool readable) : format(RGBA32), readable(rea
 }
 
 Image::~Image() {
-	delete[] data;
-	data = nullptr;
+	if (readable) {
+		if (format == RGBA128) {
+			delete[] hdrData;
+			hdrData = nullptr;
+		}
+		else {
+			delete[] data;
+			data = nullptr;
+		}
+	}
 }
 
 int Image::at(int x, int y) {

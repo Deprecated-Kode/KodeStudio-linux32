@@ -3,6 +3,7 @@ package kha.internal;
 import haxe.Json;
 import haxe.macro.Compiler;
 import haxe.macro.Context;
+import haxe.macro.Expr;
 import haxe.macro.Expr.Field;
 import sys.io.File;
 
@@ -10,8 +11,9 @@ using StringTools;
 
 class AssetsBuilder {
 	public static function findResources(): String {
+		#if macro
 		var output = Compiler.getOutput();
-		if (output == "Nothing__") { // For Haxe background compilation
+		if (output == "Nothing__" || output == "") { // For Haxe background compilation
 			#if kha_output
 			output = Compiler.getDefine("kha_output");
 			if (output.startsWith('"')) {
@@ -32,19 +34,29 @@ class AssetsBuilder {
 		}
 		else {
 			if (output.endsWith("-build")) output = output.substr(0, output.length - "-build".length);
+			if (output == "") output = "empty";
 			return output + "-resources/";
 		}
+		#else
+		return "";
+		#end
 	}
 	
 	macro static public function build(type: String): Array<Field> {
 		var fields = Context.getBuildFields();
 		var content = Json.parse(File.getContent(findResources() + "files.json"));
 		var files: Iterable<Dynamic> = content.files;
+		
+		var names = new Array<Expr>();
+		
 		for (file in files) {
 			var name = file.name;
 			var filename = file.files[0];
 			
 			if (file.type == type) {
+				
+				names.push(macro $v{name});
+				
 				switch (type) {
 					case "image":
 						fields.push({
@@ -182,6 +194,15 @@ class AssetsBuilder {
 				});
 			}
 		}
+		
+		fields.push({
+			name: "names",
+			doc: null,
+			meta: [],
+			access: [APublic],
+			kind: FVar(macro: Array<String>, macro $a { names }),
+			pos: Context.currentPos()		
+		});
 		
 		return fields;
 	}

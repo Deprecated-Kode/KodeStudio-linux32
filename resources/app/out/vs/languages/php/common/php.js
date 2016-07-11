@@ -1,41 +1,49 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-'use strict';
+/*!--------------------------------------------------------
+ * Copyright (C) Microsoft Corporation. All rights reserved.
+ *--------------------------------------------------------*/
+(function() {
+var __m = ["vs/editor/common/services/modeService","vs/languages/php/common/php","exports","vs/base/common/objects","vs/editor/common/modes","vs/editor/common/modes/abstractMode","vs/editor/common/modes/abstractState","require","vs/editor/common/modes/languageConfigurationRegistry","vs/editor/common/modes/supports/tokenizationSupport","vs/editor/common/modes/supports/suggestSupport","vs/editor/common/services/editorWorkerService","vs/platform/configuration/common/configuration","vs/editor/common/services/compatWorkerService"];
+var __M = function(deps) {
+  var result = [];
+  for (var i = 0, len = deps.length; i < len; i++) {
+    result[i] = __m[deps[i]];
+  }
+  return result;
+};
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") return Reflect.decorate(decorators, target, key, desc);
-    switch (arguments.length) {
-        case 2: return decorators.reduceRight(function(o, d) { return (d && d(o)) || o; }, target);
-        case 3: return decorators.reduceRight(function(o, d) { return (d && d(target, key)), void 0; }, void 0);
-        case 4: return decorators.reduceRight(function(o, d) { return (d && d(target, key, o)) || o; }, desc);
-    }
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/supports', 'vs/editor/common/modes', 'vs/editor/common/modes/abstractMode', 'vs/editor/common/modes/abstractState', 'vs/editor/common/services/modeService', 'vs/editor/common/modes/supports/onEnter', 'vs/platform/instantiation/common/instantiation', 'vs/platform/thread/common/thread'], function (require, exports, objects, supports, Modes, abstractMode_1, abstractState_1, modeService_1, onEnter_1, instantiation_1, thread_1) {
-    var bracketsSource = [
-        { tokenType: 'delimiter.bracket.php', open: '{', close: '}', isElectric: true },
-        { tokenType: 'delimiter.array.php', open: '[', close: ']', isElectric: true },
-        { tokenType: 'delimiter.parenthesis.php', open: '(', close: ')', isElectric: true }
-    ];
+define(__m[1], __M([7,2,3,4,5,6,0,8,9,10,11,12,13]), function (require, exports, objects, Modes, abstractMode_1, abstractState_1, modeService_1, languageConfigurationRegistry_1, tokenizationSupport_1, suggestSupport_1, editorWorkerService_1, configuration_1, compatWorkerService_1) {
+    /*---------------------------------------------------------------------------------------------
+     *  Copyright (c) Microsoft Corporation. All rights reserved.
+     *  Licensed under the MIT License. See License.txt in the project root for license information.
+     *--------------------------------------------------------------------------------------------*/
+    'use strict';
     var brackets = (function () {
+        var bracketsSource = [
+            { tokenType: 'delimiter.bracket.php', open: '{', close: '}' },
+            { tokenType: 'delimiter.array.php', open: '[', close: ']' },
+            { tokenType: 'delimiter.parenthesis.php', open: '(', close: ')' }
+        ];
         var MAP = Object.create(null);
         for (var i = 0; i < bracketsSource.length; i++) {
             var bracket = bracketsSource[i];
             MAP[bracket.open] = {
-                tokenType: bracket.tokenType,
-                bracketType: Modes.Bracket.Open
+                tokenType: bracket.tokenType
             };
             MAP[bracket.close] = {
-                tokenType: bracket.tokenType,
-                bracketType: Modes.Bracket.Close
+                tokenType: bracket.tokenType
             };
         }
         return {
@@ -44,9 +52,6 @@ define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/
             },
             tokenTypeFromString: function (text) {
                 return MAP[text].tokenType;
-            },
-            bracketTypeFromString: function (text) {
-                return MAP[text].bracketType;
             }
         };
     })();
@@ -66,7 +71,7 @@ define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/
         'try', 'true', 'use', 'var', 'while', 'xor',
         'die', 'echo', 'empty', 'exit', 'eval',
         'include', 'include_once', 'isset', 'list', 'require',
-        'require_once', 'return', 'print', 'unset',
+        'require_once', 'return', 'print', 'unset', 'yield',
         '__construct'
     ]);
     var isCompileTimeConstant = objects.createKeywordMatcher([
@@ -130,7 +135,7 @@ define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/
             throw new Error('To be implemented');
         };
         return PHPState;
-    })(abstractState_1.AbstractState);
+    }(abstractState_1.AbstractState));
     exports.PHPState = PHPState;
     var PHPString = (function (_super) {
         __extends(PHPString, _super);
@@ -178,7 +183,7 @@ define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/
             return { type: 'string.php' };
         };
         return PHPString;
-    })(PHPState);
+    }(PHPState));
     exports.PHPString = PHPString;
     var PHPNumber = (function (_super) {
         __extends(PHPNumber, _super);
@@ -248,16 +253,19 @@ define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/
                 }
             }
             var tokenType = 'number';
-            if (base === 16)
+            if (base === 16) {
                 tokenType += '.hex';
-            else if (base === 8)
+            }
+            else if (base === 8) {
                 tokenType += '.octal';
-            else if (base === 2)
+            }
+            else if (base === 2) {
                 tokenType += '.binary';
+            }
             return { type: tokenType + '.php', nextState: this.parent };
         };
         return PHPNumber;
-    })(PHPState);
+    }(PHPState));
     exports.PHPNumber = PHPNumber;
     var PHPLineComment = (function (_super) {
         __extends(PHPLineComment, _super);
@@ -284,7 +292,7 @@ define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/
             return { type: 'comment.php', nextState: this.parent };
         };
         return PHPLineComment;
-    })(PHPState);
+    }(PHPState));
     exports.PHPLineComment = PHPLineComment;
     var PHPDocComment = (function (_super) {
         __extends(PHPDocComment, _super);
@@ -311,7 +319,7 @@ define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/
             return { type: 'comment.php' };
         };
         return PHPDocComment;
-    })(PHPState);
+    }(PHPState));
     exports.PHPDocComment = PHPDocComment;
     var PHPStatement = (function (_super) {
         __extends(PHPStatement, _super);
@@ -332,7 +340,7 @@ define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/
                 return { nextState: new PHPNumber(this.getMode(), this, stream.next()) };
             }
             if (stream.advanceIfString('?>').length) {
-                return { type: 'metatag.php', nextState: this.parent, bracket: Modes.Bracket.Close };
+                return { type: 'metatag.php', nextState: this.parent };
             }
             var token = stream.nextToken();
             if (isKeyword(token.toString().toLowerCase())) {
@@ -366,7 +374,6 @@ define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/
             }
             else if (brackets.stringIsBracket(token)) {
                 return {
-                    bracket: brackets.bracketTypeFromString(token),
                     type: brackets.tokenTypeFromString(token)
                 };
             }
@@ -376,7 +383,7 @@ define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/
             return { type: '' };
         };
         return PHPStatement;
-    })(PHPState);
+    }(PHPState));
     exports.PHPStatement = PHPStatement;
     var PHPPlain = (function (_super) {
         __extends(PHPPlain, _super);
@@ -398,15 +405,14 @@ define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/
                 stream.advanceIfString('<?').length || stream.advanceIfString('<%').length) {
                 return {
                     type: 'metatag.php',
-                    nextState: new PHPStatement(this.getMode(), new PHPEnterHTMLState(this.getMode(), this.parent)),
-                    bracket: Modes.Bracket.Open
+                    nextState: new PHPStatement(this.getMode(), new PHPEnterHTMLState(this.getMode(), this.parent))
                 };
             }
             stream.next();
             return { type: '' };
         };
         return PHPPlain;
-    })(PHPState);
+    }(PHPState));
     exports.PHPPlain = PHPPlain;
     var PHPEnterHTMLState = (function (_super) {
         __extends(PHPEnterHTMLState, _super);
@@ -423,38 +429,19 @@ define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/
             return false;
         };
         return PHPEnterHTMLState;
-    })(PHPState);
+    }(PHPState));
     exports.PHPEnterHTMLState = PHPEnterHTMLState;
     var PHPMode = (function (_super) {
         __extends(PHPMode, _super);
-        function PHPMode(descriptor, instantiationService, threadService, modeService) {
-            var _this = this;
-            _super.call(this, descriptor, instantiationService, threadService);
+        function PHPMode(descriptor, modeService, configurationService, editorWorkerService, compatWorkerService) {
+            _super.call(this, descriptor.id, compatWorkerService);
             this.modeService = modeService;
-            this.electricCharacterSupport = new supports.BracketElectricCharacterSupport(this, { brackets: bracketsSource });
-            this.tokenizationSupport = new supports.TokenizationSupport(this, this, true, false);
-            this.characterPairSupport = new supports.CharacterPairSupport(this, {
-                autoClosingPairs: [{ open: '{', close: '}', notIn: ['string.php'] },
-                    { open: '[', close: ']', notIn: ['string.php'] },
-                    { open: '(', close: ')', notIn: ['string.php'] },
-                    { open: '"', close: '"', notIn: ['string.php'] },
-                    { open: '\'', close: '\'', notIn: ['string.php'] }
-                ] });
-            this.suggestSupport = new supports.SuggestSupport(this, {
-                triggerCharacters: ['.', ':', '$'],
-                excludeTokens: ['comment'],
-                suggest: function (resource, position) { return _this.suggest(resource, position); } });
-            this.onEnterSupport = new onEnter_1.OnEnterSupport(this.getId(), {
-                brackets: [
-                    { open: '(', close: ')' },
-                    { open: '{', close: '}' },
-                    { open: '[', close: ']' }
-                ]
-            });
+            this.tokenizationSupport = new tokenizationSupport_1.TokenizationSupport(this, this, true);
+            languageConfigurationRegistry_1.LanguageConfigurationRegistry.register(this.getId(), PHPMode.LANG_CONFIG);
+            if (editorWorkerService) {
+                Modes.SuggestRegistry.register(this.getId(), new suggestSupport_1.TextualSuggestSupport(editorWorkerService, configurationService), true);
+            }
         }
-        PHPMode.prototype.asyncCtor = function () {
-            return this.modeService.getOrCreateMode('text/html');
-        };
         PHPMode.prototype.getInitialState = function () {
             // Because AbstractMode doesn't allow the initial state to immediately enter a nested
             // mode, we will enter a nested mode ourselves
@@ -495,20 +482,35 @@ define(["require", "exports", 'vs/base/common/objects', 'vs/editor/common/modes/
             // such that when we enter HTML again, we can recover the HTML state from .parent
             myStateAfterNestedMode.parent = lastNestedModeState;
         };
-        PHPMode.prototype.getCommentsConfiguration = function () {
-            return { lineCommentTokens: ['//', '#'], blockCommentStartToken: '/*', blockCommentEndToken: '*/' };
+        PHPMode.LANG_CONFIG = {
+            wordPattern: abstractMode_1.createWordRegExp('$_'),
+            comments: {
+                lineComment: '//',
+                blockComment: ['/*', '*/']
+            },
+            brackets: [
+                ['{', '}'],
+                ['[', ']'],
+                ['(', ')']
+            ],
+            autoClosingPairs: [
+                { open: '{', close: '}', notIn: ['string.php'] },
+                { open: '[', close: ']', notIn: ['string.php'] },
+                { open: '(', close: ')', notIn: ['string.php'] },
+                { open: '"', close: '"', notIn: ['string.php'] },
+                { open: '\'', close: '\'', notIn: ['string.php'] }
+            ]
         };
-        PHPMode.prototype.getWordDefinition = function () {
-            return PHPMode.WORD_DEFINITION;
-        };
-        PHPMode.WORD_DEFINITION = abstractMode_1.createWordRegExp('$-');
         PHPMode = __decorate([
-            __param(1, instantiation_1.IInstantiationService),
-            __param(2, thread_1.IThreadService),
-            __param(3, modeService_1.IModeService)
+            __param(1, modeService_1.IModeService),
+            __param(2, configuration_1.IConfigurationService),
+            __param(3, editorWorkerService_1.IEditorWorkerService),
+            __param(4, compatWorkerService_1.ICompatWorkerService)
         ], PHPMode);
         return PHPMode;
-    })(abstractMode_1.AbstractMode);
+    }(abstractMode_1.CompatMode));
     exports.PHPMode = PHPMode;
 });
+
+}).call(this);
 //# sourceMappingURL=php.js.map

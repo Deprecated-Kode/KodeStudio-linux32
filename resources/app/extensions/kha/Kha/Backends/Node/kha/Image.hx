@@ -26,12 +26,16 @@ class Image implements Canvas implements Resource {
 		graphics4 = new EmptyGraphics4(w, h);
 	}
 	
-	public static function create(width: Int, height: Int, format: TextureFormat = null, usage: Usage = null, levels: Int = 1): Image {
+	public static function create(width: Int, height: Int, format: TextureFormat = null, usage: Usage = null): Image {
 		return new Image(width, height, format);
 	}
 	
 	public static function createRenderTarget(width: Int, height: Int, format: TextureFormat = null, depthStencil: Bool = false, antiAliasingSamples: Int = 1): Image {
 		return new Image(width, height, format);
+	}
+	
+	public static function fromBytes(bytes: Bytes, width: Int, height: Int, format: TextureFormat = null, usage: Usage = null): Image {
+		return null;
 	}
 	
 	public static var maxSize(get, null): Int;
@@ -51,6 +55,9 @@ class Image implements Canvas implements Resource {
 	public function unload(): Void { }
 	public function lock(level: Int = 0): Bytes { return bytes; }
 	public function unlock(): Void { }
+	public function generateMipmaps(levels: Int): Void { }
+	public function setMipmaps(mipmaps: Array<Image>): Void { }
+	public function setDepthStencilFrom(image: Image): Void { }
 	public var width(get, null): Int;
 	private function get_width(): Int { return w; }
 	public var height(get, null): Int;

@@ -52,6 +52,10 @@ function fromPlatform(platform) {
 			return "HTML5";
 		case Platform.Tizen:
 			return "Tizen";
+		case Platform.Pi:
+			return "Pi";
+		case Platform.tvOS:
+			return "tvOS";
 		default:
 			return "unknown";
 	}
@@ -70,6 +74,8 @@ function shaderLang(platform) {
 					return "d3d11";
 				case GraphicsApi.Direct3D12:
 					return 'd3d11';
+				case GraphicsApi.Vulkan:
+					return 'spirv';
 				default:
 					return "d3d9";
 			}
@@ -78,6 +84,7 @@ function shaderLang(platform) {
 		case Platform.PlayStation3:
 			return "d3d9";
 		case Platform.iOS:
+		case Platform.tvOS:
 			switch (Options.graphicsApi) {
 				case GraphicsApi.Metal:
 					return 'metal';
@@ -85,16 +92,33 @@ function shaderLang(platform) {
 					return 'essl';
 			}
 		case Platform.OSX:
-			return "glsl";
+			switch (Options.graphicsApi) {
+				case GraphicsApi.Metal:
+					return 'metal';
+				default:
+					return 'glsl';
+			}
 		case Platform.Android:
-			return "essl";
+			switch (Options.graphicsApi) {
+				case GraphicsApi.Vulkan:
+					return 'spirv';
+				default:
+					return 'essl';
+			}
 		case Platform.Xbox360:
 			return "d3d9";
 		case Platform.Linux:
-			return "glsl";
+			switch (Options.graphicsApi) {
+				case GraphicsApi.Vulkan:
+					return 'spirv';
+				default:
+					return 'glsl';
+			}
 		case Platform.HTML5:
 			return "essl";
 		case Platform.Tizen:
+			return "essl";
+		case Platform.Pi:
 			return "essl";
 		default:
 			return platform;
@@ -144,20 +168,20 @@ function exportKoremakeProject(from, to, platform, options) {
 	let project = solution.getProjects()[0];
 	let files = project.getFiles();
 	for (let file of files) {
-		if (file.endsWith(".glsl")) {
-			let outfile = file;
+		if (file.file.endsWith(".glsl")) {
+			let outfile = file.file;
 			const index = outfile.lastIndexOf('/');
 			if (index > 0) outfile = outfile.substr(index);
 			outfile = outfile.substr(0, outfile.length - 5);
-			compileShader(from, shaderLang(platform), file, path.join(project.getDebugDir(), outfile), "build", platform, options.nokrafix);
+			compileShader(from, shaderLang(platform), file.file, path.join(project.getDebugDir(), outfile), "build", platform, options.nokrafix);
 		}
 	}
 
 	let exporter = null;
-	if (platform == Platform.iOS || platform == Platform.OSX) exporter = new ExporterXCode();
+	if (platform === Platform.iOS || platform === Platform.OSX || platform === Platform.tvOS) exporter = new ExporterXCode();
 	else if (platform == Platform.Android) exporter = new ExporterAndroid();
 	else if (platform == Platform.HTML5) exporter = new ExporterEmscripten();
-	else if (platform == Platform.Linux) {
+	else if (platform == Platform.Linux || platform === Platform.Pi) {
 		if (options.compile) exporter = new ExporterMakefile();
 		else exporter = new ExporterCodeBlocks();
 	}
@@ -280,10 +304,10 @@ exports.run = function (options, loglog, callback) {
 					}
 					if (options.run) {
 						if (options.target === Platform.OSX) {
-							child_process.spawn('open', ['build/Release/' + solutionName + '.app/Contents/MacOS/' + solutionName], {cwd: options.to});
+							child_process.spawn('open', ['build/Release/' + solutionName + '.app/Contents/MacOS/' + solutionName], {stdio: 'inherit', cwd: options.to});
 						}
 						else if (options.target === Platform.Linux || options.target === Platform.Windows) {
-							child_process.spawn(path.resolve(path.join(options.from.toString(), project.getDebugDir(), solutionName)), [], {cwd: path.join(options.from.toString(), project.getDebugDir())});
+							child_process.spawn(path.resolve(path.join(options.from.toString(), project.getDebugDir(), solutionName)), [], {stdio: 'inherit', cwd: path.join(options.from.toString(), project.getDebugDir())});
 						}
 						else {
 							log.info('--run not yet implemented for this platform');

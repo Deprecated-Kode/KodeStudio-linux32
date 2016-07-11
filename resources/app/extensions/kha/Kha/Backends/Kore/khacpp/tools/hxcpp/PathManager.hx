@@ -11,7 +11,7 @@ class PathManager
       {   
          return secondPath;  
       }
-      else if (secondPath != null && secondPath != "")
+      else if (secondPath != null && secondPath != "" && secondPath!=".")
       {
          if (BuildTool.isWindows)
          {
@@ -213,13 +213,10 @@ class PathManager
       }
       
       var parts = directory.split("/");
-      var oldPath = "";
       
       if (parts.length > 0 && parts[0].indexOf(":") > -1)
       {
-         oldPath = Sys.getCwd();
-         Sys.setCwd(parts[0] + "\\");
-         parts.shift();
+         total = parts.shift();
       }
       
       for (part in parts)
@@ -245,10 +242,6 @@ class PathManager
          }
       }
       
-      if (oldPath != "")
-      {
-         Sys.setCwd(oldPath);
-      }
    }
 
    public static function removeDirectory(directory:String):Void

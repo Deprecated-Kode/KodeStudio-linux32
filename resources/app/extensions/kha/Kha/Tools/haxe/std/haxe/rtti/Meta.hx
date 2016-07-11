@@ -1,5 +1,5 @@
 /*
- * Copyright (C)2005-2012 Haxe Foundation
+ * Copyright (C)2005-2016 Haxe Foundation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,7 +22,9 @@
 package haxe.rtti;
 
 /**
-	An api to access classes and enums metadata at runtime.
+	An API to access classes and enums metadata at runtime.
+	
+	@see <http://haxe.org/manual/cr-rtti.html>
 **/
 class Meta {
 
@@ -64,6 +66,9 @@ class Meta {
 			}
 		}
 		return ret;
+#elseif hl
+		var t : hl.types.BaseType = t;
+		return t.__meta__;
 #else
 		return untyped t.__meta__;
 #end

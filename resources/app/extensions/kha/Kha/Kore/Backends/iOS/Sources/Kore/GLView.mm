@@ -1,6 +1,5 @@
 #import "GLView.h"
 #include "pch.h"
-#include <Kore/Application.h>
 #include <Kore/Input/Keyboard.h>
 #include <Kore/Input/Mouse.h>
 #include <Kore/Input/Sensor.h>
@@ -47,12 +46,12 @@ namespace {
 	GLint backingWidth, backingHeight;
 }
 
-int Kore::System::screenWidth() {
-	return backingWidth;
+int Kore::System::windowWidth(int id) {
+    return backingWidth;
 }
 
-int Kore::System::screenHeight() {
-	return backingHeight;
+int Kore::System::windowHeight(int id) {
+    return backingHeight;
 }
 
 @implementation GLView
@@ -115,21 +114,25 @@ int Kore::System::screenHeight() {
 	glBindRenderbufferOES(GL_RENDERBUFFER_OES, colorRenderbuffer);
 	glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_COLOR_ATTACHMENT0_OES, GL_RENDERBUFFER_OES, colorRenderbuffer);
 	
-	glGenRenderbuffersOES(1, &depthRenderbuffer);
-    glBindRenderbufferOES(GL_RENDERBUFFER_OES, depthRenderbuffer);
-    glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_DEPTH_ATTACHMENT_OES, GL_RENDERBUFFER_OES, depthRenderbuffer);
+	glGenRenderbuffersOES(1, &depthStencilRenderbuffer);
+    glBindRenderbufferOES(GL_RENDERBUFFER_OES, depthStencilRenderbuffer);
+    glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_DEPTH_ATTACHMENT_OES, GL_RENDERBUFFER_OES, depthStencilRenderbuffer);
+    glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_STENCIL_ATTACHMENT_OES, GL_RENDERBUFFER_OES, depthStencilRenderbuffer);
 
     // Start acceletometer
 	hasAccelerometer = false;
-
+#ifndef SYS_TVOS
 	motionManager = [[CMMotionManager alloc]init];
 	if ([motionManager isAccelerometerAvailable]) {
 		motionManager.accelerometerUpdateInterval = 0.033;
 		[motionManager startAccelerometerUpdates];
 		hasAccelerometer = true;
 	}
-	
+#endif
+    
+#ifndef SYS_TVOS
 	[[NSNotificationCenter defaultCenter]addObserver:self selector:@selector(onKeyboardHide:) name:UIKeyboardWillHideNotification object:nil];
+#endif
 
 	return self;
 }
@@ -171,6 +174,7 @@ int Kore::System::screenHeight() {
     glBindFramebufferOES(GL_FRAMEBUFFER_OES, defaultFramebuffer);
     glViewport(0, 0, backingWidth, backingHeight);
 
+#ifndef SYS_TVOS
     // Accelerometer updates
     if (hasAccelerometer) {
 
@@ -185,6 +189,7 @@ int Kore::System::screenHeight() {
  			lastAccelerometerZ = acc.z;
  		}
     }
+#endif
 }
 #endif
 
@@ -225,8 +230,8 @@ static float red = 0.0f;
 	
 	printf("backingWitdh/Height: %i, %i\n", backingWidth, backingHeight);
 	
-	glBindRenderbufferOES(GL_RENDERBUFFER_OES, depthRenderbuffer);
-	glRenderbufferStorageOES(GL_RENDERBUFFER_OES, GL_DEPTH_COMPONENT24_OES, backingWidth, backingHeight);
+	glBindRenderbufferOES(GL_RENDERBUFFER_OES, depthStencilRenderbuffer);
+	glRenderbufferStorageOES(GL_RENDERBUFFER_OES, GL_DEPTH24_STENCIL8_OES, backingWidth, backingHeight);
 	
 	if (glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES) != GL_FRAMEBUFFER_COMPLETE_OES) {
 		NSLog(@"Failed to make complete framebuffer object %x", glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES));
@@ -249,6 +254,11 @@ static float red = 0.0f;
 		glDeleteRenderbuffersOES(1, &colorRenderbuffer);
 		colorRenderbuffer = 0;
 	}
+    
+    if (depthStencilRenderbuffer) {
+        glDeleteRenderbuffersOES(1, &depthStencilRenderbuffer);
+        depthStencilRenderbuffer = 0;
+    }
 	
 	if ([EAGLContext currentContext] == context) [EAGLContext setCurrentContext:nil];
 	
@@ -268,7 +278,7 @@ static float red = 0.0f;
 			float x = point.x * self.contentScaleFactor;
 			float y = point.y * self.contentScaleFactor;
 			if (index == 0) {
-				Kore::Mouse::the()->_press(0, x, y);
+				Kore::Mouse::the()->_press(0, 0, x, y);
 			}
 			Kore::Surface::the()->_touchStart(index, x, y);
 		}
@@ -283,7 +293,7 @@ static float red = 0.0f;
 			float x = point.x * self.contentScaleFactor;
 			float y = point.y * self.contentScaleFactor;
 			if (index == 0) {
-				Kore::Mouse::the()->_move(x, y);
+				Kore::Mouse::the()->_move(0, x, y);
 			}
 			Kore::Surface::the()->_move(index, x, y);
 		}
@@ -298,7 +308,7 @@ static float red = 0.0f;
 			float x = point.x * self.contentScaleFactor;
 			float y = point.y * self.contentScaleFactor;
 			if (index == 0) {
-				Kore::Mouse::the()->_release(0, x, y);
+				Kore::Mouse::the()->_release(0, 0, x, y);
 			}
 			Kore::Surface::the()->_touchEnd(index, x, y);
 		}
@@ -313,7 +323,7 @@ static float red = 0.0f;
 			float x = point.x * self.contentScaleFactor;
 			float y = point.y * self.contentScaleFactor;
 			if (index == 0) {
-				Kore::Mouse::the()->_release(0, x, y);
+				Kore::Mouse::the()->_release(0, 0, x, y);
 			}
 			Kore::Surface::the()->_touchEnd(index, x, y);
 		}

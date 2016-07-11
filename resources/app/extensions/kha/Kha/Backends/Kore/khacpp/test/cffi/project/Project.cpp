@@ -6,8 +6,10 @@
 // Include neko glue....
 #define NEKO_COMPATIBLE
 #endif
+
 #include <hx/CFFIPrime.h>
 #include <math.h>
+#include <vector>
 
 
 int addInts(int a, int b)
@@ -22,6 +24,39 @@ void printString(const char *inMessage)
 }
 DEFINE_PRIME1v(printString);
 
+std::vector<AutoGCRoot *> roots;
+
+void setRoot(int inRoot, value inValue)
+{
+   if (roots.size()<=inRoot)
+      roots.resize(inRoot+1);
+   if (roots[inRoot]==0)
+      roots[inRoot] = new AutoGCRoot(inValue);
+   else
+      roots[inRoot]->set(inValue);
+}
+DEFINE_PRIME2v(setRoot);
+
+
+value getRoot(int inRoot)
+{
+   if (inRoot>=roots.size() || !roots[inRoot])
+      return alloc_null();
+   return roots[inRoot]->get();
+}
+DEFINE_PRIME1(getRoot);
+
+
+void clearRoots()
+{
+   for(int i=0;i<roots.size();i++)
+   {
+      delete roots[i];
+      roots[i] = 0;
+   }
+}
+DEFINE_PRIME0v(clearRoots);
+
 
 double distance3D(int x, int y, int z)
 {
@@ -31,17 +66,27 @@ DEFINE_PRIME3(distance3D);
 
 void fields(value object)
 {
-   printf("x : %f\n", val_field_numeric(object, val_id("x")) );
+   if ( val_is_null(object))
+      printf("null fields\n");
+   else
+      printf("x : %f\n", val_field_numeric(object, val_id("x")) );
 }
 DEFINE_PRIME1v(fields);
 
 
 HxString stringVal(HxString inString)
 {
-   printf("String : %s (%d)\n", inString.__s, inString.length);
+   printf("String : %s (%d)\n", inString.c_str(), inString.size());
    return HxString("Ok");
 }
 DEFINE_PRIME1(stringVal);
+
+
+HxString getNullString()
+{
+   return 0;
+}
+DEFINE_PRIME0(getNullString);
 
 
 // Conflict with name - use anon-namespace
@@ -218,6 +263,81 @@ value byteDataByte(value byteData, value inIndex)
 }
 DEFINE_PRIM(byteDataByte, 2);
 
+
+int myFreeCount = 0;
+
+DEFINE_KIND(myKind);
+
+void destroyMyKind(value inAbstract)
+{
+   //printf("destroyMyKind\n");
+   // In this case, the data belongs to the abstract
+   myFreeCount++;
+}
+
+void freeMyKind(value inAbstract)
+{
+   //printf("freeMyKind\n");
+   void *data = val_to_kind(inAbstract,myKind);
+   // In this case, we own the data, so must delete it
+   delete (int *)data;
+   myFreeCount++;
+}
+
+
+value allocAbstract()
+{
+   if (!myKind)
+      myKind = alloc_kind();
+
+   void *data = new int(99);
+
+   value abs = alloc_abstract(myKind, data);
+   val_gc(abs, freeMyKind);
+   return abs;
+}
+DEFINE_PRIM(allocAbstract, 0);
+
+
+
+value createAbstract()
+{
+   if (!myKind)
+      myKind = alloc_kind();
+
+   value abs = create_abstract(myKind, sizeof(int), destroyMyKind);
+   int *data = (int *)val_get_handle(abs,myKind);
+   *data = 99;
+   return abs;
+}
+DEFINE_PRIM(createAbstract, 0);
+
+
+
+value getAbstract(value inAbstract)
+{
+   void *data = val_to_kind(inAbstract,myKind);
+   if (!data)
+      return alloc_int(-1);
+
+   return alloc_int(*(int *)data);
+}
+DEFINE_PRIM(getAbstract, 1);
+
+
+value getAbstractFreeCount()
+{
+   return alloc_int(myFreeCount);
+}
+DEFINE_PRIM(getAbstractFreeCount, 0);
+
+
+value freeAbstract(value inAbstract)
+{
+   free_abstract(inAbstract);
+   return alloc_null();
+}
+DEFINE_PRIM(freeAbstract, 1);
 
 
 

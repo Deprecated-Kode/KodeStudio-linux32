@@ -15,30 +15,19 @@ import kha.graphics4.VertexStructure;
 class PipelineState extends PipelineStateBase {
 	public function new() {
 		super();
-		init();
+		untyped __cpp__('program = new Kore::Program;');
 	}
 	
-	@:functionCode('
-		program = new Kore::Program();
-	')
-	private function init(): Void {
-		
-	}
-	
-	public function setVertexShader(shader: VertexShader): Void {
-		setVertexShaderImpl(shader);
-	}
-	
-	@:functionCode('
-		program->setVertexShader(shader->shader);
-	')
-	private function setVertexShaderImpl(shader: VertexShader): Void {
-		
+	public function delete(): Void {
+		untyped __cpp__('delete program; program = nullptr;');
 	}
 	
 	@:functionCode('
 		program->setVertexShader(vertexShader->shader);
 		program->setFragmentShader(fragmentShader->shader);
+		if (geometryShader != null()) program->setGeometryShader(geometryShader->shader);
+		if (tesselationControlShader != null()) program->setTesselationControlShader(tesselationControlShader->shader);
+		if (tesselationEvaluationShader != null()) program->setTesselationEvaluationShader(tesselationEvaluationShader->shader);
 		Kore::VertexStructure s0, s1, s2, s3;
 		Kore::VertexStructure* structures2[4] = { &s0, &s1, &s2, &s3 };
 		::kha::graphics4::VertexStructure* structures[4] = { &structure0, &structure1, &structure2, &structure3 };
@@ -114,8 +103,11 @@ class PipelineState extends PipelineStateBase {
 	}
 	
 	public function unused(): Void {
-		var include1: VertexElement = new VertexElement("include", VertexData.Float2);
-		var include2: VertexShader = new VertexShader(null);
-		var include2: FragmentShader = new FragmentShader(null);
+		var include1 = new VertexElement("include", VertexData.Float2);
+		var include2 = new VertexShader(null, null);
+		var include3 = new FragmentShader(null, null);
+		var include4 = new GeometryShader(null);
+		var include5 = new TesselationControlShader(null);
+		var include6 = new TesselationEvaluationShader(null);
 	}
 }

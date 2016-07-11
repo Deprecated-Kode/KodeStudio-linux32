@@ -10,5 +10,7 @@ module.exports = {
 	Xbox360: 'xbox360',
 	Linux: 'linux',
 	HTML5: 'html5',
-	Tizen: 'tizen'
+	Tizen: 'tizen',
+	Pi: 'pi',
+	tvOS: 'tvos'
 };

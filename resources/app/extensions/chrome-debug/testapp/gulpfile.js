@@ -34,7 +34,7 @@ gulp.task('build', function () {
         .pipe(gulp.dest('./wwwroot/out'));
 });
 
-gulp.task('serve', ['build'], function (done) {
+function serve(done) {
     browserSync({
         online: false,
         open: false,
@@ -43,13 +43,16 @@ gulp.task('serve', ['build'], function (done) {
             baseDir: ['./wwwroot']
         }
     }, done);
-});
+}
+
+gulp.task('serve', serve);
+gulp.task('buildAndServe', ['build'], serve);
 
 gulp.task('bs-reload', ['build'], function() {
     browserSync.reload();
 });
 
-gulp.task('watch', ['serve'], function (cb) {
+gulp.task('watch', ['build', 'serve'], function (cb) {
     log('Watching build sources...');
     gulp.watch(sources, ['build', 'bs-reload']);
 });
